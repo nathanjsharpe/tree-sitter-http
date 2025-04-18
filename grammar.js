@@ -9,18 +9,11 @@ module.exports = grammar({
     name: "http",
 
     extras: (_) => [],
-    conflicts: ($) => [
-        [$.target_url],
-        [$._raw_body],
-        [$._section_content],
-    ],
+    conflicts: ($) => [[$.target_url], [$._raw_body], [$._section_content]],
     inline: ($) => [$._target_url_line],
 
     rules: {
-        document: ($) =>
-            repeat(
-                $.section,
-            ),
+        document: ($) => repeat($.section),
         // NOTE: just for debugging purpose
         WORD_CHAR: (_) => WORD_CHAR,
         PUNCTUATION: (_) => PUNCTUATION,
@@ -29,10 +22,7 @@ module.exports = grammar({
         LINE_TAIL: (_) => LINE_TAIL,
 
         _comment_prefix: (_) =>
-            choice(
-                token(prec(2, /#\s*/)),
-                token(prec(2, /\/\/\s*/)),
-            ),
+            choice(token(prec(2, /#\s*/)), token(prec(2, /\/\/\s*/))),
         comment: ($) =>
             seq(
                 $._comment_prefix,
@@ -76,13 +66,12 @@ module.exports = grammar({
             ),
 
         section: ($) =>
-            prec.right(choice(
-                seq(
-                    $.request_separator,
-                    optional($._section_content),
+            prec.right(
+                choice(
+                    seq($.request_separator, optional($._section_content)),
+                    $._section_content,
                 ),
-                $._section_content,
-            )),
+            ),
 
         // NOTE: grammatically, each request section should contain only single `$.request` node
         // we are allowing multiple `$.request` nodes here to lower the parser size
@@ -111,24 +100,9 @@ module.exports = grammar({
         http_version: (_) => token(prec(0, /HTTP\/[\d\.]+/)),
 
         _target_url_line: ($) =>
-            repeat1(
-                choice(
-                    WORD_CHAR,
-                    PUNCTUATION,
-                    $.variable,
-                ),
-            ),
+            repeat1(choice(WORD_CHAR, PUNCTUATION, $.variable)),
         target_url: ($) =>
-            seq(
-                $._target_url_line,
-                repeat(
-                    seq(
-                        NL,
-                        WS,
-                        $._target_url_line,
-                    ),
-                ),
-            ),
+            seq($._target_url_line, repeat(seq(NL, WS, $._target_url_line))),
 
         status_code: (_) => /[1-5]\d{2}/,
         status_text: (_) =>
@@ -137,43 +111,43 @@ module.exports = grammar({
             seq($.http_version, WS, $.status_code, WS, $.status_text, NL),
 
         request: ($) =>
-            prec.right(seq(
-                optional(seq(field("method", $.method), WS)),
-                field("url", $.target_url),
-                optional(seq(WS, field("version", $.http_version))),
-                NL,
-                repeat($.comment),
-                optional($.response),
-                repeat(field("header", $.header)),
-                optional(
-                    seq(
-                        repeat1($._blank_line),
-                        // repeat($.comment),
-                        repeat(alias($.var_comment, $.comment)),
-                        optional(
-                            field("body", choice(
-                                $.raw_body,
-                                $.multipart_form_data,
-                                $.xml_body,
-                                $.json_body,
-                                $.graphql_body,
-                                $._external_body,
-                            )),
+            prec.right(
+                seq(
+                    optional(seq(field("method", $.method), WS)),
+                    field("url", $.target_url),
+                    optional(seq(WS, field("version", $.http_version))),
+                    NL,
+                    repeat($.comment),
+                    optional($.response),
+                    repeat(field("header", $.header)),
+                    optional(
+                        seq(
+                            repeat1($._blank_line),
+                            // repeat($.comment),
+                            repeat(alias($.var_comment, $.comment)),
+                            optional(
+                                field(
+                                    "body",
+                                    choice(
+                                        $.raw_body,
+                                        $.multipart_form_data,
+                                        $.xml_body,
+                                        $.json_body,
+                                        $.graphql_body,
+                                        $._external_body,
+                                    ),
+                                ),
+                            ),
                         ),
                     ),
                 ),
-            )),
+            ),
 
         query_param: ($) =>
             prec.right(
                 seq(
                     field("key", $.value),
-                    optional(
-                        seq(
-                            "=",
-                            optional(field("value", $.value)),
-                        ),
-                    ),
+                    optional(seq("=", optional(field("value", $.value)))),
                 ),
             ),
 
@@ -183,11 +157,7 @@ module.exports = grammar({
                 optional(WS),
                 ":",
                 optional(token(prec(1, WS))),
-                optional(
-                    field("value", choice(
-                        $.value,
-                    )),
-                ),
+                optional(field("value", choice($.value))),
                 NL,
             ),
 
@@ -223,17 +193,9 @@ module.exports = grammar({
                 NL,
             ),
 
-        xml_body: (_) =>
-            seq(
-                token(prec(2, /<[^\s@]/)),
-                repeat1(LINE_TAIL),
-            ),
+        xml_body: (_) => seq(token(prec(2, /<[^\s@]/)), repeat1(LINE_TAIL)),
 
-        json_body: (_) =>
-            seq(
-                token(prec(2, /[{\[]\s+/)),
-                repeat1(LINE_TAIL),
-            ),
+        json_body: (_) => seq(token(prec(2, /[{\[]\s+/)), repeat1(LINE_TAIL)),
 
         graphql_body: ($) => seq($.graphql_data, optional($.json_body)),
         graphql_data: (_) =>
@@ -244,11 +206,7 @@ module.exports = grammar({
                 repeat1(LINE_TAIL),
             ),
 
-        _external_body: ($) =>
-            seq(
-                $.external_body,
-                NL,
-            ),
+        _external_body: ($) => seq($.external_body, NL),
         external_body: ($) =>
             seq(
                 token(prec(2, "<")),
@@ -258,18 +216,20 @@ module.exports = grammar({
             ),
 
         multipart_form_data: ($) =>
-            prec.right(seq(
-                token(prec(2, "--")),
-                LINE_TAIL,
-                repeat(
-                    choice(
-                        $._blank_line,
-                        $.comment,
-                        seq($.external_body, choice(WS, NL)),
-                        token(prec(1, LINE_TAIL)),
+            prec.right(
+                seq(
+                    token(prec(2, "--")),
+                    LINE_TAIL,
+                    repeat(
+                        choice(
+                            $._blank_line,
+                            $.comment,
+                            seq($.external_body, choice(WS, NL)),
+                            token(prec(1, LINE_TAIL)),
+                        ),
                     ),
                 ),
-            )),
+            ),
 
         raw_body: ($) => $._raw_body,
         _raw_body: ($) =>
@@ -286,23 +246,10 @@ module.exports = grammar({
         header_entity: (_) => /[\w\-]+/,
         identifier: (_) => /[A-Za-z_.\$\d\u00A1-\uFFFF-]+/,
         path: ($) =>
-            prec.right(repeat1(
-                choice(
-                    WORD_CHAR,
-                    PUNCTUATION,
-                    $.variable,
-                    ESCAPED,
-                ),
-            )),
-        value: ($) =>
-            repeat1(
-                choice(
-                    WORD_CHAR,
-                    PUNCTUATION,
-                    $.variable,
-                    WS,
-                ),
+            prec.right(
+                repeat1(choice(WORD_CHAR, PUNCTUATION, $.variable, ESCAPED)),
             ),
+        value: ($) => repeat1(choice(WORD_CHAR, PUNCTUATION, $.variable, WS)),
         _blank_line: (_) => seq(optional(WS), token(prec(-1, NL))),
     },
 });

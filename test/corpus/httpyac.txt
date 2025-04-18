@@ -1,0 +1,12 @@
+=================
+Import Statement
+=================
+
+# @import whatever.http
+
+---
+
+(document
+  (section
+    (import_statement
+      file_name: (path))))

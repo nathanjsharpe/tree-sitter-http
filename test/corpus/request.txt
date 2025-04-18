@@ -144,3 +144,32 @@ GET https://example.com/
     request: (request
       method: (method)
       url: (target_url))))
+
+============================================
+Request to localhost with title and metadata
+============================================
+### Request to localhost
+# @name requestLH
+# @ref another-request
+# @loop for ids of some_ids
+
+GET http://localhost:3000/api/v1/users/all
+
+---
+
+(document
+  (section
+    (request_separator
+      value: (value))
+    (comment
+      name: (identifier)
+      value: (value))
+    (comment
+      name: (identifier)
+      value: (value))
+    (comment
+      name: (identifier)
+      value: (value))
+    request: (request
+      method: (method)
+    url: (target_url))))
